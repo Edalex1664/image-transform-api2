@@ -1,33 +1,29 @@
-// api/transform.js
+try {
+  const replicateResponse = await fetch("https://api.replicate.com/v1/predictions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      version: "replicate-model-version-id",
+      input: { image }
+    })
+  });
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (replicateResponse.status === 429) {
+    // Trop de requêtes
+    return res.status(429).json({ error: "Too many requests, please wait and try again." });
   }
 
-  const { image, model } = req.body;
-
-  if (!image || !model) {
-    return res.status(400).json({ error: "Missing image or model" });
+  if (!replicateResponse.ok) {
+    // Autres erreurs HTTP
+    const errorDetails = await replicateResponse.text();
+    return res.status(replicateResponse.status).json({ error: errorDetails });
   }
 
-  try {
-    const replicateResponse = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        version: "replicate-model-version-id",
-        input: { image }
-      })
-    });
-
-    const json = await replicateResponse.json();
-    res.status(200).json(json);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  const json = await replicateResponse.json();
+  res.status(200).json(json);
+} catch (error) {
+  res.status(500).json({ error: error.message });
 }
-
